@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>授权管理系统 | Gemini Balance Edition</title>
+
+    <!-- 引入 Gemini Balance 风格字体与图标 -->
+    <link
+        href="https://fonts.loli.net/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        [v-cloak] {
+            display: none !important;
+        }
+
+        :root {
+            --primary-50: #eef2ff;
+            --primary-100: #e0e7ff;
+            --primary-500: #6366f1;
+            --primary-600: #4f46e5;
+            --primary-700: #4338ca;
+            --bg-body: #f8fafc;
+            --bg-card: #ffffff;
+            --text-main: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --success: #10B981;
+            --danger: #EF4444;
+            --pill-bg: #e0e7ff;
+            --pill-text: #4f46e5;
+            --danger-hover: #fee2e2;
+        }
+
+        .product-pill {
+            background: var(--pill-bg);
+            color: var(--pill-text);
+            padding: 0.35rem 1.25rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            border: 1px solid rgba(79, 70, 229, 0.1);
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+            margin-left: 1rem;
+        }
+
+        .pill-btn {
+            opacity: 0.4;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .pill-btn:hover {
+            opacity: 1;
+        }
+
+        .pill-btn-del:hover {
+            color: var(--danger);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* --- 动画系统 --- */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .animate-slide-up {
+            animation: slideUp 0.5s ease-out;
+        }
+
+        /* --- 玻璃卡片 --- */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        /* --- 登入页 --- */
+        .auth-wrap {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .auth-card {
+            width: 100%;
+            max-width: 440px;
+            padding: 3rem 2.5rem;
+            text-align: center;
+        }
+
+        .auth-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--primary-50);
+            color: var(--primary-600);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 2rem;
+        }
+
+        .auth-card h2 {
+            font-size: 1.875rem;
+            font-weight: 800;
+            margin-bottom: 2rem;
+            color: var(--text-main);
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group i {
+            position: absolute;
+            left: 1.25rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 1rem 1rem 1rem 3.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.2s;
+            background: #fff;
+        }
+
+        .input-group input:focus {
+            border-color: var(--primary-500);
+            box-shadow: 0 0 0 2px var(--primary-100);
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 1rem;
+            background: var(--primary-600);
+            color: #fff;
+            border: none;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-500);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+        }
+
+        /* --- 主控制面板 --- */
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 3rem 1.5rem;
+        }
+
+        .dash-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .brand h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text-main);
+            margin: 0;
+        }
+
+        .product-pill {
+            display: inline-flex;
+            align-items: center;
+            background: var(--primary-50);
+            color: var(--primary-700);
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-left: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .stat-card {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-card .label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-card .value {
+            font-size: 2.25rem;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-top: 0.5rem;
+        }
+
+        /* 列表区域 */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .user-select-none {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .no-selection-highlight::selection {
+            background: transparent;
+        }
+
+        /* --- 统计卡片 --- */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .stat-card {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-card);
+            border-radius: 1rem;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        }
+
+        .stat-card .label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-card .value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-top: 0.5rem;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .stat-value-primary {
+            color: var(--primary-600) !important;
+            background: none !important;
+            -webkit-text-fill-color: initial !important;
+        }
+
+        /* --- 公告盒 --- */
+        .announcement-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 1rem 1.5rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+            font-size: 0.875rem;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .badge {
+            padding: 0.25rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.625rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge-success {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10B981;
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #EF4444;
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: #F59E0B;
+        }
+
+        .action-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            background: #fff;
+            color: var(--text-secondary);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background: #f3f4f6;
+            color: var(--text-main);
+            transform: scale(1.1);
+        }
+
+        .action-btn.btn-del:hover {
+            background: #fee2e2;
+            color: var(--danger);
+        }
+
+        .input-standard {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.625rem;
+            font-size: 0.875rem;
+            outline: none;
+            transition: all 0.2s;
+            margin-bottom: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+        }
+
+        .input-standard:focus {
+            border-color: var(--primary-500);
+            box-shadow: 0 0 4px rgba(99, 102, 241, 0.3);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .search-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 0 0.75rem;
+            display: flex;
+            align-items: center;
+            width: 240px;
+            height: 32px;
+            transition: all 0.2s;
+        }
+
+        .search-box:focus-within {
+            border-color: var(--primary-500);
+            box-shadow: 0 0 0 2px var(--primary-100);
+        }
+
+        .search-box input {
+            border: none;
+            outline: none;
+            margin-left: 0.5rem;
+            font-size: 0.75rem;
+            width: 100%;
+            background: transparent;
+        }
+
+        /* --- Footer --- */
+        .footer {
+            margin-top: 5rem;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .footer a {
+            color: var(--primary-600);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .footer a:hover {
+            color: var(--primary-700);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app" v-cloak>
+
+        <!-- 登入界面 -->
+        <div v-if="!isAuthenticated" class="auth-wrap animate-fade-in">
+            <div class="glass-card auth-card">
+                <div class="auth-icon">
+                    <i class="fas fa-shield-halved"></i>
+                </div>
+                <h2>授权管理系统</h2>
+                <div class="input-group">
+                    <i class="fas fa-key"></i>
+                    <input type="password" v-model="token" @keyup.enter="login" placeholder="令牌校验 (TOKEN)"
+                        autocomplete="off">
+                </div>
+                <button @click="login" :disabled="loading" class="btn-primary">
+                    <span v-if="!loading">登录</span>
+                    <span v-else><i class="fas fa-circle-notch fa-spin"></i> 校验中</span>
+                </button>
+                <div class="mt-8 text-xs font-semibold text-gray-400">Gemini Balance Design Protocol</div>
+            </div>
+        </div>
+
+        <!-- 主仪表盘 -->
+        <div v-else class="dashboard-container animate-fade-in">
+
+            <header class="dash-header">
+                <div class="brand">
+                    <h1 class="flex items-center">
+                        <span class="text-indigo-400 font-extrabold tracking-tight">授权中心</span>
+                        <div class="product-pill group">
+                            <span class="tracking-tight">{{ currentProduct === '_ALL_' ? '全部产品 (Global)' :
+                                (currentDisplayName || currentProduct) }}</span>
+                            <div class="flex items-center border-l border-indigo-100 ml-1 pl-3 gap-3">
+                                <button v-if="currentProduct !== '_ALL_'" @click="editDisplayName"
+                                    class="pill-btn hover:text-indigo-800" title="修改前端显示名称">
+                                    <i class="fas fa-pen-to-square text-xs"></i>
+                                </button>
+                                <button
+                                    v-if="currentProduct !== '_ALL_' && (!deletedProducts || !deletedProducts.includes(currentProduct))"
+                                    @click="deleteCurrentProduct" class="pill-btn pill-btn-del" title="将此产品及其授权移入回收站">
+                                    <i class="fas fa-trash-can text-xs"></i>
+                                </button>
+                                <button v-if="deletedProducts && deletedProducts.includes(currentProduct)"
+                                    @click="restoreCurrentProduct"
+                                    class="pill-btn text-emerald-500 hover:text-emerald-600" title="从回收站恢复此产品">
+                                    <i class="fas fa-trash-arrow-up text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <select v-model="currentProduct" class="input-standard !mb-0"
+                        style="width: auto; padding: 0.5rem 2.5rem 0.5rem 1rem;" title="选择激活的产品技术标识">
+                        <option value="_ALL_">全部产品 (Global)</option>
+                        <option v-for="p in products" :key="p" :value="p">{{ productNames[p] || p }}</option>
+
+                        <optgroup label="回收站 (已删除产品)" v-if="deletedProducts && deletedProducts.length > 0">
+                            <option v-for="dp in deletedProducts" :key="dp" :value="dp">🗑️ {{ productNames[dp] || dp }}
+                            </option>
+                        </optgroup>
+
+                        <option value="new">+ 注册新产品</option>
+                    </select>
+                    <button @click="logout" class="action-btn btn-del" title="注销"><i
+                            class="fas fa-power-off"></i></button>
+                </div>
+            </header>
+
+            <!-- 数据复盘大盘 (Batch 4) -->
+            <div class="stats-grid animate-fade-in">
+                <div class="stat-card border-x-4 border-l-indigo-500 border-r-transparent">
+                    <span class="label">今日新增派发</span>
+                    <span class="value">{{ serverStats ? serverStats.issued_today : 0 }}<span
+                            class="text-sm text-gray-400 font-normal ml-1">Key</span></span>
+                </div>
+                <div class="stat-card border-x-4 border-l-emerald-500 border-r-transparent" title="正版设备占历史总暴露硬件的比例">
+                    <span class="label">大盘正版普及率</span>
+                    <span class="value text-emerald-500">{{ serverStats ? serverStats.permanent_ratio : 0 }}<span
+                            class="text-lg ml-1">%</span></span>
+                </div>
+                <div class="stat-card border-x-4 border-l-red-400 border-r-transparent"
+                    title="曾经使用过自助试用机制但最终未购买的沉没用户总量">
+                    <span class="label">全局试用流失追踪</span>
+                    <span class="value text-red-500">{{ serverStats ? serverStats.trial_churn : 0 }}<span
+                            class="text-sm font-normal ml-1 text-red-400">台白嫖跑路</span></span>
+                </div>
+            </div>
+
+            <!-- 公告发布面板 (复古回归：美化版单行布局) -->
+            <div class="announcement-box animate-fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fas fa-bullhorn text-indigo-500"></i>
+                        云端消息广播
+                        <span v-if="currentAnnouncement"
+                            class="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-100 font-bold">在线</span>
+                    </h2>
+                </div>
+
+                <div v-if="currentAnnouncement"
+                    class="mb-4 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center gap-3">
+                    <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></span>
+                    <span class="text-xs text-slate-600 italic">"{{ currentAnnouncement }}"</span>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-3">
+                    <textarea v-model="announcementMsg"
+                        :placeholder="currentAnnouncement ? '点击此处更新已分发的广播文字...' : '在此填写要下发给用户的新公告内容...'"
+                        class="input-standard !mb-0 h-[80px] py-3 text-xs flex-1 transition-all"
+                        style="resize:none; border-color: #e5e7eb;"></textarea>
+                    <div class="flex flex-row gap-2">
+                        <button @click="postAnnouncement(currentProduct === '_ALL_' ? 'GLOBAL' : 'PRODUCT')"
+                            class="btn-primary !w-[100px] !py-0 text-xs shadow-sm h-[40px] md:h-auto font-bold"
+                            title="立刻发送给选定范围">发送</button>
+                        <button @click="clearAllAnnouncements"
+                            class="action-btn !w-[100px] !h-auto py-0 text-xs border-red-100 text-red-500 hover:bg-red-50 transition font-bold"
+                            title="清空历史广播">取消</button>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center gap-4 text-xs">
+                    <span class="text-gray-400 font-bold uppercase tracking-wider text-[10px]">显示频率控制:</span>
+                    <label class="flex items-center gap-1.5 cursor-pointer group">
+                        <input type="radio" v-model="annoMode" value="once"
+                            class="w-3.5 h-3.5 text-indigo-600 focus:ring-indigo-500 border-gray-300">
+                        <span :class="annoMode === 'once' ? 'text-indigo-600 font-bold' : 'text-gray-500'"
+                            class="transition-all">内容变动才弹 (Once)</span>
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer group">
+                        <input type="radio" v-model="annoMode" value="always"
+                            class="w-3.5 h-3.5 text-indigo-600 focus:ring-indigo-500 border-gray-300">
+                        <span :class="annoMode === 'always' ? 'text-indigo-600 font-bold' : 'text-gray-500'"
+                            class="transition-all">强制每次都弹 (Always)</span>
+                    </label>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 统一外跳链接设置 (紧贴公告下方，兼管全局和独立单品) -->
+            <div class="announcement-box animate-fade-in mt-4">
+                <h2 class="text-base font-bold text-slate-800 flex items-center gap-2 mb-4">
+                    <i class="fas fa-link text-indigo-500"></i>
+                    {{ currentProduct === '_ALL_' ? '全局通用推广链接' : '独立推广链接 (将覆盖全局)' }}
+                </h2>
+                <div class="flex gap-2 mb-2">
+                    <input v-model="promoUrl"
+                        :placeholder="currentProduct === '_ALL_' ? '如: https://store.com/buy (留空则彻底关闭弹窗外跳)' : '置空则默认穿透使用「全局」的通用链接'"
+                        class="input-standard !mb-0 text-sm font-mono flex-1">
+                    <button @click="savePromoUrl" class="btn-primary !w-[80px] text-xs shadow-none">保存</button>
+                    <button @click="promoUrl=''"
+                        class="btn-primary flex-none !w-[80px] text-xs shadow-none !bg-gray-200 !text-gray-600 hover:!bg-gray-300">清空</button>
+                </div>
+                <div class="text-[10px] text-gray-400 leading-relaxed">
+                    {{ currentProduct === '_ALL_' ? '所有未配置独立地址的产品，试用期外跳都将默认指向此链接。' : '仅当您希望此产品跳往【不同于全局通用地址】的独立页面时填写本栏。'
+                    }}
+                </div>
+            </div>
+
+            <div class="main-layout mt-6">
+
+                <!-- 凭证发行 -->
+                <aside v-if="currentProduct !== '_ALL_'">
+                    <div class="glass-card p-8">
+                        <h3 class="panel-title"><i class="fas fa-plus-circle text-indigo-500"></i> 发行授权</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">席位</label>
+                                <input type="number" v-model.number="genForm.seats" class="input-standard font-mono">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">有效期 (天)</label>
+                                <input type="number" v-model.number="genForm.duration_days"
+                                    class="input-standard font-mono">
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label
+                                class="flex items-center gap-2 p-2 rounded-lg border-2 border-indigo-50 bg-indigo-50/30 cursor-pointer hover:bg-indigo-50 transition">
+                                <input type="checkbox" :checked="isAllProductsSelected"
+                                    @change="toggleSelectAllProducts"
+                                    class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300">
+                                <span class="text-xs font-bold text-indigo-700">全选 / 取消全选</span>
+                            </label>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mb-4">
+                            <label v-for="p in products" :key="p"
+                                class="flex items-center gap-2 p-2 rounded-lg border border-slate-100 bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition">
+                                <input type="checkbox" :value="p" v-model="genForm.product_ids"
+                                    class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300">
+                                <div class="flex flex-col">
+                                    <span class="text-xs font-bold text-slate-700">{{ productNames[p] || p }}</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">用户标识 / 备注标签</label>
+                        <input v-model="genForm.contact" placeholder="填写用户昵称或标识..." class="input-standard">
+                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">技术备注</label>
+                        <textarea v-model="genForm.remark" rows="3" class="input-standard scrolling"
+                            style="resize:none;" placeholder="仅限管理员可见的内容..."></textarea>
+
+                        <button @click="generateKey" :disabled="generating" class="btn-primary mt-2">
+                            {{ generating ? '进行中...' : '生成并下发激活码' }}
+                        </button>
+
+                        <div v-if="lastGeneratedKey" @click="copyKey"
+                            class="mt-6 p-4 rounded-xl text-center cursor-pointer transition-all duration-300"
+                            :class="copiedKey === lastGeneratedKey ? 'bg-indigo-600 text-white scale-105 shadow-lg' : 'bg-emerald-50 border border-emerald-100 text-emerald-700 hover:scale-105'">
+                            <div class="text-[9px] font-bold uppercase mb-2"
+                                :class="copiedKey === lastGeneratedKey ? 'text-indigo-100' : 'text-emerald-600'">
+                                {{ copiedKey === lastGeneratedKey ? '✓ 已复制到剪贴板' : '生成成功 (点击复制)' }}
+                            </div>
+                            <div class="text-xl font-mono font-bold break-all">{{ lastGeneratedKey }}</div>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- 宏观上帝视角面板 -->
+                <aside v-else>
+                    <div class="glass-card p-8 flex flex-col justify-center animate-fade-in">
+                        <h3 class="panel-title mb-6"><i class="fas fa-sliders text-indigo-500"></i> 全局推广设置</h3>
+                        <div class="pt-2 mb-6">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block"><i
+                                    class="fas fa-clock mr-1"></i> 全局默认试用天数 (自助生成)</label>
+                            <div class="flex gap-2">
+                                <input v-model="defaultTrialDays" type="number" min="0" placeholder="7"
+                                    class="input-standard !mb-0 text-sm font-mono flex-1">
+                                <button @click="savePromoUrl"
+                                    class="btn-primary flex-none w-[80px] text-xs shadow-none">保存</button>
+                            </div>
+                            <div class="text-[10px] text-gray-400 mt-2 leading-relaxed">
+                                客户端点击“免费试用”时，服务器会自动根据此天数无感派发试用凭证。设置为 0 则代表当前不开放试用。</div>
+                        </div>
+
+                        <div class="pt-6 border-t border-slate-100">
+                            <!-- 全局推广URL已移动至左侧公告区域下方 -->
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- 凭证矩阵 -->
+                <main>
+                    <div class="glass-card overflow-hidden">
+                        <div class="p-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+                            <div class="flex items-center gap-4 flex-shrink-0 overflow-x-auto">
+                                <h2 class="text-sm font-bold text-slate-800 whitespace-nowrap">核销凭证矩阵</h2>
+                                <div
+                                    class="flex items-center bg-slate-100 rounded-lg p-0.5 text-[10px] font-bold whitespace-nowrap flex-shrink-0">
+                                    <button @click="filterMode = 'all'"
+                                        :class="filterMode === 'all' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400'"
+                                        class="px-3 py-1 rounded-md transition-all">全部 ({{ licenses.filter(l => l.status
+                                        !== 'deleted').length }})</button>
+                                    <button @click="filterMode = 'online'"
+                                        :class="filterMode === 'online' ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-400'"
+                                        class="px-3 py-1 rounded-md transition-all">在线</button>
+                                    <button @click="filterMode = 'offline'"
+                                        :class="filterMode === 'offline' ? 'bg-white shadow-sm text-slate-500' : 'text-gray-400'"
+                                        class="px-3 py-1 rounded-md transition-all">离线</button>
+                                    <button @click="filterMode = 'trial'"
+                                        :class="filterMode === 'trial' ? 'bg-white shadow-sm text-orange-600' : 'text-gray-400'"
+                                        class="px-3 py-1 rounded-md transition-all">试用</button>
+                                    <button @click="filterMode = 'deleted'"
+                                        :class="filterMode === 'deleted' ? 'bg-white shadow-sm text-red-500' : 'text-gray-400'"
+                                        class="px-3 py-1 rounded-md transition-all"><i
+                                            class="fas fa-trash-can mr-1"></i>
+                                        回收站 ({{ licenses.filter(l => l.status ===
+                                        'deleted').length }})</button>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <button v-if="filterMode === 'trial'" @click="clearExpiredTrials"
+                                    class="action-btn !w-auto px-3 h-8 text-xs border-red-100 text-red-500 hover:bg-red-50 font-bold transition">
+                                    <i class="fas fa-broom mr-1"></i> 清理过期
+                                </button>
+                                <div class="search-box">
+                                    <i class="fas fa-magnifying-glass text-gray-400"></i>
+                                    <input v-model="searchQuery" placeholder="检索标识号或备注..." type="text">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>卡密凭证</th>
+                                        <th class="text-center cursor-pointer hover:text-indigo-600 transition-colors group"
+                                            @click="toggleSort('is_trial')">
+                                            授权类型
+                                            <i class="fas ml-1 text-[10px] transition-transform"
+                                                :class="[sortKey === 'is_trial' ? (sortOrder === 'desc' ? 'fa-sort-down' : 'fa-sort-up') : 'fa-sort opacity-20']"></i>
+                                        </th>
+                                        <th class="text-right cursor-pointer hover:text-indigo-600 transition-colors group"
+                                            @click="toggleSort('last_active_at')">
+                                            活跃时间
+                                            <i class="fas ml-1 text-[10px] transition-transform"
+                                                :class="[sortKey === 'last_active_at' ? (sortOrder === 'desc' ? 'fa-sort-down' : 'fa-sort-up') : 'fa-sort opacity-20']"></i>
+                                        </th>
+                                        <th class="text-right">资产检索</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="lic in filteredLicenses" :key="lic.key" class="animate-slide-up">
+                                        <td>
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <div class="font-bold text-gray-800">{{ lic.user_contact || '未命名记名授权' }}
+                                                </div>
+                                                <span v-if="lic.remark"
+                                                    class="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold">{{
+                                                    lic.remark }}</span>
+                                            </div>
+                                            <div @click="copyToClipboard(lic.key)"
+                                                class="font-mono text-xs cursor-pointer transition-all no-selection-highlight flex items-center gap-2"
+                                                :class="copiedKey === lic.key ? 'text-emerald-600 font-bold' : 'text-indigo-600 hover:text-indigo-800'"
+                                                title="点击复制激活码">
+                                                {{ lic.key }}
+                                                <span v-if="copiedKey === lic.key"
+                                                    class="text-[10px] animate-bounce">✓</span>
+                                            </div>
+                                            <div v-if="lic.remark"
+                                                class="text-[10px] text-gray-400 mt-2 italic max-w-xs">{{
+                                                lic.remark }}
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="flex flex-col items-center">
+                                                <span v-if="lic.is_trial"
+                                                    class="badge bg-orange-100 text-orange-600 px-3 py-1 scale-110">试用</span>
+                                                <span v-else
+                                                    class="badge bg-indigo-100 text-indigo-600 px-3 py-1 scale-110">正式</span>
+                                                <div
+                                                    class="font-mono text-[9px] font-bold text-slate-400 mt-2 tracking-wider">
+                                                    {{ countDevices(lic.activated_devices) }} / {{ lic.max_seats }}
+                                                    SEATS</div>
+                                                <div v-if="lic.status !== 'active'"
+                                                    class="text-[9px] text-red-400 font-bold mt-1 uppercase">{{
+                                                    lic.status }}</div>
+                                                <div v-if="lic.last_error"
+                                                    class="text-[9px] text-red-500 font-bold mt-1"
+                                                    :title="lic.last_error">
+                                                    <i class="fas fa-triangle-exclamation"></i> 报错
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-right">
+                                            <div class="text-xs font-bold text-gray-700">{{
+                                                formatRelativeTime(lic.last_active_at) }}</div>
+                                            <div class="text-[10px] font-bold text-gray-400 mt-1 uppercase">{{
+                                                formatDateSimple(lic.expires_at) || '永久' }}</div>
+                                        </td>
+                                        <td class="text-right">
+                                            <div class="flex justify-end space-x-2">
+                                                <template v-if="lic.status === 'deleted'">
+                                                    <button @click="restoreKey(lic)" class="action-btn"
+                                                        style="color:#10b981; border:1px solid #a7f3d0;" title="恢复授权"><i
+                                                            class="fas fa-trash-arrow-up"></i></button>
+                                                </template>
+                                                <template v-else>
+                                                    <button @click="openEditModal(lic)" class="action-btn"
+                                                        title="修改名称/备注"><i class="fas fa-edit"></i></button>
+                                                    <button @click="resetDevices(lic)" class="action-btn"
+                                                        title="解绑设备"><i class="fas fa-rotate"></i></button>
+                                                    <button @click="toggleBan(lic)" class="action-btn"
+                                                        :title="lic.status === 'banned' ? '解除封禁' : '封禁此凭证'"><i
+                                                            class="fas"
+                                                            :class="lic.status === 'banned' ? 'fa-unlock' : 'fa-lock-open'"></i></button>
+                                                    <button @click="deleteKey(lic)" class="action-btn btn-del"
+                                                        title="彻底销毁"><i class="fas fa-trash-can"></i></button>
+                                                </template>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr v-if="filteredLicenses.length === 0">
+                                        <td colspan="4" class="p-16 text-center text-gray-400 italic">暂无相关资产数据</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </main>
+            </div>
+
+            </footer>
+
+            <!-- 编辑模态框 -->
+            <div v-if="editModal.show"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+                @click.self="editModal.show = false">
+                <div class="glass-card w-full max-w-md p-8 animate-slide-up">
+                    <h3 class="panel-title border-b border-gray-100 pb-4 mb-6"><i
+                            class="fas fa-pen-to-square text-indigo-500"></i> 编辑授权信息</h3>
+
+                    <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">激活码 (不可修改)</label>
+                    <div class="font-mono text-sm text-gray-500 bg-gray-50 p-3 rounded-lg mb-4 border border-gray-100">
+                        {{ editForm.key }}</div>
+
+                    <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">用户标识 / 备注标签</label>
+                    <input v-model="editForm.user_contact" placeholder="填写用户昵称或标识..." class="input-standard">
+
+                    <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">技术备注</label>
+                    <textarea v-model="editForm.remark" rows="4" class="input-standard scrolling" style="resize:none;"
+                        placeholder="仅限管理员可见的内容..."></textarea>
+
+                    <div class="flex gap-3 mt-6">
+                        <button @click="editModal.show = false"
+                            class="btn-primary !bg-gray-200 !text-gray-600 hover:!bg-gray-300 flex-1">取消</button>
+                        <button @click="saveLicense" :disabled="loading" class="btn-primary flex-1">
+                            {{ loading ? '同步中...' : '提交修改' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CDN 依赖 (无需本地 static 目录) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script>
+        const { createApp } = Vue;
+        createApp({
+            data() {
+                return {
+                    token: localStorage.getItem('admin_token') || '',
+                    isAuthenticated: false,
+                    loading: false,
+                    generating: false,
+                    licenses: [],
+                    searchQuery: '',
+                    currentProduct: localStorage.getItem('last_product') || '_ALL_',
+                    products: [],
+                    productNames: {}, // PID -> Display Name Map
+                    announcementMsg: '',
+                    currentAnnouncement: '',
+                    annoMode: 'once',
+                    currentDisplayName: '',
+                    copiedKey: '',
+                    filterMode: 'all', // all, online, offline
+                    sortOrder: 'desc', // desc, asc
+                    serverStats: null,
+                    promoUrl: '',
+                    defaultTrialDays: 7,
+                    genForm: { seats: 1, duration_days: 0, contact: '', remark: '', product_ids: [], is_trial: false },
+                    editModal: { show: false },
+                    editForm: { key: '', user_contact: '', remark: '' },
+                }
+            },
+            watch: {
+                async currentProduct(val) {
+                    if (val === 'new') {
+                        const pid = prompt("输入新产品技术标识 (ID):");
+                        if (pid) {
+                            // 立即持久化显示名称，确保刷新后依然存在（即使没有授权）
+                            await this.api('/admin/update_display_name', 'POST', {
+                                product_id: pid,
+                                display_name: pid
+                            });
+                            await this.fetchStats();
+                            this.currentProduct = pid;
+                        } else {
+                            this.currentProduct = this.products[0] || 'ArchivePro';
+                        }
+                        return;
+                    }
+                    localStorage.setItem('last_product', val);
+                    this.fetchAnnouncement();
+                }
+            },
+            computed: {
+                filteredLicenses() {
+                    const list = this.licenses || [];
+                    let filtered = list;
+                    if (this.currentProduct !== '_ALL_') {
+                        filtered = list.filter(l => {
+                            const pids = (l.product_id || "").split(",").map(p => p.trim());
+                            return pids.includes(this.currentProduct);
+                        });
+                    }
+
+                    // 状态筛选
+                    if (this.filterMode === 'deleted') {
+                        filtered = filtered.filter(l => l.status === 'deleted');
+                    } else {
+                        filtered = filtered.filter(l => l.status !== 'deleted');
+                        if (this.filterMode === 'online') {
+                            const now = new Date();
+                            filtered = filtered.filter(l => l.last_active_at && (now - new Date(l.last_active_at + (l.last_active_at.endsWith('Z') ? '' : 'Z'))) / 3600000 < 24);
+                        } else if (this.filterMode === 'offline') {
+                            const now = new Date();
+                            filtered = filtered.filter(l => !l.last_active_at || (now - new Date(l.last_active_at + (l.last_active_at.endsWith('Z') ? '' : 'Z'))) / 3600000 >= 24);
+                        } else if (this.filterMode === 'trial') {
+                            filtered = filtered.filter(l => l.is_trial);
+                        }
+                    }
+
+                    // 搜索过滤
+                    if (this.searchQuery) {
+                        const q = this.searchQuery.toLowerCase();
+                        filtered = filtered.filter(l => (l.key + l.user_contact + (l.remark || '')).toLowerCase().includes(q));
+                    }
+
+                    // 排序处理
+                    filtered.sort((a, b) => {
+                        let valA, valB;
+                        if (this.sortKey === 'last_active_at') {
+                            valA = a.last_active_at ? new Date(a.last_active_at + (a.last_active_at.endsWith('Z') ? '' : 'Z')).getTime() : 0;
+                            valB = b.last_active_at ? new Date(b.last_active_at + (b.last_active_at.endsWith('Z') ? '' : 'Z')).getTime() : 0;
+                        } else if (this.sortKey === 'is_trial') {
+                            valA = a.is_trial ? 1 : 0;
+                            valB = b.is_trial ? 1 : 0;
+                        } else {
+                            valA = a[this.sortKey];
+                            valB = b[this.sortKey];
+                        }
+
+                        if (this.sortOrder === 'desc') {
+                            return valB > valA ? 1 : (valB < valA ? -1 : 0);
+                        } else {
+                            return valA > valB ? 1 : (valA < valB ? -1 : 0);
+                        }
+                    });
+
+                    return filtered;
+                },
+                localStats() {
+                    const list = this.filteredLicenses;
+                    let trial_hw = new Set();
+                    let official_hw = new Set();
+                    list.forEach(l => {
+                        const devices = l.activated_devices ? l.activated_devices.split(',').filter(d => d.trim().length > 0) : [];
+                        devices.forEach(d => {
+                            if (l.is_trial) trial_hw.add(d);
+                            else official_hw.add(d);
+                        });
+                    });
+                    let converted = 0;
+                    trial_hw.forEach(hw => { if (official_hw.has(hw)) converted++; });
+                    return {
+                        total_trial_devices: trial_hw.size,
+                        converted_devices: converted,
+                        conversion_rate: trial_hw.size > 0 ? ((converted / trial_hw.size) * 100).toFixed(1) : 0
+                    };
+                },
+                activeCount() { return this.filteredLicenses.filter(l => l.status === 'active').length; },
+                onlineCount() {
+                    const now = new Date();
+                    return this.licenses.filter(l => {
+                        if (!l.last_active_at) return false;
+                        const dateStr = l.last_active_at + (l.last_active_at.endsWith('Z') ? '' : 'Z');
+                        return (now - new Date(dateStr)) / 3600000 < 24;
+                    }).length;
+                },
+                isAllProductsSelected() {
+                    return this.products.length > 0 && this.genForm.product_ids.length === this.products.length;
+                }
+            },
+            methods: {
+                toggleSelectAllProducts() {
+                    if (this.isAllProductsSelected) {
+                        this.genForm.product_ids = [];
+                    } else {
+                        this.genForm.product_ids = [...this.products];
+                    }
+                },
+                async api(endpoint, method = 'POST', body = {}) {
+                    this.loading = true;
+                    if (method !== 'GET') body.token = this.token;
+                    let url = endpoint;
+                    if (method === 'GET') url += (url.includes('?') ? '&' : '?') + `token=${encodeURIComponent(this.token)}`;
+                    try {
+                        const res = await fetch(url, {
+                            method,
+                            headers: method !== 'GET' ? { 'Content-Type': 'application/json' } : {},
+                            body: method !== 'GET' ? JSON.stringify(body) : undefined
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            if (res.status === 403) { this.isAuthenticated = false; }
+                            alert(data.msg || '令牌验证失败');
+                            throw new Error('API');
+                        }
+                        return data;
+                    } catch (e) {
+                        console.error(e);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                async login() {
+                    if (!this.token) return;
+                    await this.fetchStats();
+                    if (this.isAuthenticated) {
+                        localStorage.setItem('admin_token', this.token);
+                        this.fetchAnnouncement();
+                    }
+                },
+                logout() {
+                    this.token = '';
+                    this.isAuthenticated = false;
+                    localStorage.removeItem('admin_token');
+                },
+                async fetchStats() {
+                    const data = await this.api('/admin/stats?_t=' + new Date().getTime(), 'GET');
+                    if (data) {
+                        this.licenses = data.licenses || [];
+                        // 过滤掉 _ALL_ 以及任意被叫作“全部”的字面量变体，以防止 UI 上出现重复的下拉项和错误的多选框
+                        this.products = (data.all_products || ['ArchivePro']).filter(p => !['_ALL_', '全部', '全部产品', '全部产品 (Global)'].includes(p));
+                        this.deletedProducts = data.deleted_products || [];
+                        this.productNames = data.product_names || {};
+                        this.serverStats = data.stats || null;
+                        this.isAuthenticated = true;
+
+                        // 确保选中项合法
+                        const validProducts = ['_ALL_', ...this.products, ...this.deletedProducts];
+                        if (!validProducts.includes(this.currentProduct)) {
+                            this.currentProduct = this.products[0] || '_ALL_';
+                        }
+                    }
+                },
+                async renameProduct() {
+                    const oldName = this.currentProduct;
+                    if (oldName === '_ALL_') return;
+
+                    const newName = prompt("标识更名 (Product ID):", oldName);
+                    if (newName && newName !== oldName) {
+                        const res = await this.api('/admin/rename_product', 'POST', {
+                            old_name: oldName,
+                            new_name: newName
+                        });
+                        if (res) {
+                            this.currentProduct = newName;
+                            await this.fetchStats();
+                        }
+                    }
+                },
+                async generateKey() {
+                    if (this.genForm.product_ids.length === 0) {
+                        alert("请至少选择一个授权产品！");
+                        return;
+                    }
+                    this.genForm.is_trial = this.genForm.duration_days > 0;
+                    this.generating = true;
+                    const data = await this.api('/admin/generate', 'POST', this.genForm);
+                    this.generating = false;
+                    if (data) {
+                        this.lastGeneratedKey = data.key;
+                        this.fetchStats();
+                    }
+                },
+                async toggleBan(lic) {
+                    if (!confirm(`切换授权状态?`)) return;
+                    await this.api('/admin/ban', 'POST', {
+                        license_key: lic.key,
+                        action: lic.status === 'banned' ? 'unban' : 'ban'
+                    });
+                    this.fetchStats();
+                },
+                async deleteKey(lic) {
+                    if (!confirm(`彻底销毁此凭证，将无法恢复！确定吗？`)) return;
+                    await this.api('/admin/delete', 'POST', {
+                        license_key: lic.key
+                    });
+                    this.fetchStats();
+                },
+                async restoreKey(lic) {
+                    if (!confirm(`将此凭证从回收站中恢复并变回正常激活状态？`)) return;
+                    await this.api('/admin/restore', 'POST', {
+                        license_key: lic.key
+                    });
+                    this.fetchStats();
+                },
+                async resetDevices(lic) {
+                    if (!confirm("强制解绑所有设备并计数归零?")) return;
+                    await this.api('/admin/reset', 'POST', {
+                        license_key: lic.key
+                    });
+                    this.fetchStats();
+                },
+                async fetchAnnouncement() {
+                    const data = await this.api(`/admin/get_announcement?product_id=${this.currentProduct}`, 'GET');
+                    if (data) {
+                        this.currentAnnouncement = data.message;
+                        this.currentDisplayName = data.display_name;
+                        this.annoMode = data.anno_mode || 'once';
+                        this.promoUrl = data.promo_url || '';
+                        this.defaultTrialDays = data.default_trial_days || 7;
+                    }
+                },
+                async savePromoUrl() {
+                    const res = await this.api('/admin/update_promo_url', 'POST', {
+                        product_id: this.currentProduct,
+                        promo_url: this.promoUrl,
+                        default_trial_days: Number(this.defaultTrialDays)
+                    });
+                    if (res) alert("全局推广设定已同步至系统！");
+                },
+                openEditModal(lic) {
+                    this.editForm = {
+                        key: lic.key,
+                        user_contact: lic.user_contact || '',
+                        remark: lic.remark || ''
+                    };
+                    this.editModal.show = true;
+                },
+                async saveLicense() {
+                    const res = await this.api('/admin/update_license', 'POST', {
+                        license_key: this.editForm.key,
+                        user_contact: this.editForm.user_contact,
+                        remark: this.editForm.remark
+                    });
+                    if (res) {
+                        this.editModal.show = false;
+                        await this.fetchStats();
+                    }
+                },
+                async editDisplayName() {
+                    const oldName = this.currentDisplayName || this.currentProduct;
+                    const newName = prompt("修改显示名称 (仅外观):", oldName);
+                    if (newName && newName !== oldName) {
+                        const res = await this.api('/admin/update_display_name', 'POST', {
+                            product_id: this.currentProduct,
+                            display_name: newName
+                        });
+                        if (res) {
+                            this.currentDisplayName = newName;
+                            await this.fetchStats();
+                        }
+                    }
+                },
+                async deleteCurrentProduct() {
+                    const pid = this.currentProduct;
+                    if (pid === 'ArchivePro') {
+                        alert("系统核心产品 ArchivePro 不允许删除。");
+                        return;
+                    }
+                    if (!confirm(`确定要将产品页面 [${pid}] 移入回收站吗？\n所有相关的激活码也会被暂时停用并进入回收站。`)) {
+                        return;
+                    }
+                    const res = await this.api('/admin/delete_product', 'POST', {
+                        product_id: pid
+                    });
+                    if (res) {
+                        alert("产品已移入回收站。您可以在下拉菜单的底部找到它并恢复。");
+                        await this.fetchStats();
+                    }
+                },
+                async restoreCurrentProduct() {
+                    const pid = this.currentProduct;
+                    if (!confirm(`将从回收站中完整恢复产品 [${pid}] 及它名下所有的授权码，变回正常状态？`)) return;
+
+                    const res = await this.api('/admin/restore_product', 'POST', {
+                        product_id: pid
+                    });
+                    if (res) {
+                        alert("产品页面恢复成功！");
+                        await this.fetchStats();
+                    }
+                },
+                async postAnnouncement(target) {
+                    if (!this.announcementMsg.trim()) return;
+                    await this.api('/admin/post_announcement', 'POST', {
+                        target_product: target === 'GLOBAL' ? '_ALL_' : this.currentProduct,
+                        message: this.announcementMsg.trim(),
+                        mode: this.annoMode
+                    });
+                    this.announcementMsg = '';
+                    this.fetchAnnouncement();
+                    alert(target === 'GLOBAL' ? "全体广播已下发！" : "单品推送成功！");
+                },
+                async clearExpiredTrials() {
+                    if (!confirm("确定要一键将所有[已过期]的试用凭证移入回收站吗？\n(这可以让您的面板保持整洁)")) return;
+                    const res = await this.api('/admin/clear_expired_trials', 'POST');
+                    if (res) {
+                        alert(`清理完成！共软删除了 ${res.deleted_count} 个过期失效试用凭证。`);
+                        this.fetchStats();
+                    }
+                },
+                async clearAllAnnouncements() {
+                    if (!confirm("确定要撤回全服务器所有的公告吗？（包括全体和单品）")) return;
+                    await this.api('/admin/clear_all_announcements', 'POST', {});
+                    await this.fetchAnnouncement();
+                    alert("已清空全部公告。");
+                },
+                async clearAnnouncement() {
+                    if (!confirm("确定要清除这条公告吗？")) return;
+                    await this.api('/admin/announcement', 'POST', {
+                        product_id: this.currentProduct,
+                        message: ''
+                    });
+                    await this.fetchAnnouncement();
+                },
+                copyKey() {
+                    navigator.clipboard.writeText(this.lastGeneratedKey);
+                    this.copiedKey = this.lastGeneratedKey;
+                    setTimeout(() => {
+                        if (this.copiedKey === this.lastGeneratedKey) this.copiedKey = '';
+                    }, 2000);
+                },
+                copyToClipboard(val) {
+                    navigator.clipboard.writeText(val);
+                    this.copiedKey = val;
+                    setTimeout(() => {
+                        if (this.copiedKey === val) this.copiedKey = '';
+                    }, 2000);
+                },
+                toggleSort(key) {
+                    if (this.sortKey === key) {
+                        this.sortOrder = this.sortOrder === 'desc' ? 'asc' : 'desc';
+                    } else {
+                        this.sortKey = key;
+                        this.sortOrder = 'desc';
+                    }
+                },
+                countDevices(s) {
+                    return (s || '').split(',').filter(Boolean).length;
+                },
+                translateStatus(s) {
+                    return {
+                        active: '生效中',
+                        banned: '已封禁',
+                        expired: '已过期'
+                    }[s] || '未知';
+                },
+                statusClass(lic) {
+                    if (lic.status === 'banned') return 'badge-danger';
+                    if (lic.status === 'expired') return 'badge-warning';
+                    return 'badge-success';
+                },
+                formatRelativeTime(iso) {
+                    if (!iso) return '从未连接';
+                    // Fix: Force treat server time as UTC if it lacks timezone info to fix "8 hours ago" issue
+                    let dateStr = iso;
+                    if (!dateStr.endsWith('Z') && !dateStr.includes('+')) {
+                        dateStr += 'Z';
+                    }
+                    const diff = (new Date() - new Date(dateStr)) / 1000;
+                    if (diff < 60) return '刚才';
+                    if (diff < 3600) return Math.floor(diff / 60) + ' 分钟前';
+                    if (diff < 86400) return Math.floor(diff / 3600) + ' 小时前';
+                    return Math.floor(diff / 86400) + ' 天前';
+                },
+                formatDateSimple(iso) {
+                    if (!iso) return '';
+                    let dateStr = iso;
+                    if (!dateStr.endsWith('Z') && !dateStr.includes('+')) {
+                        dateStr += 'Z';
+                    }
+                    // Force display in China Standard Time (UTC+8)
+                    return new Date(dateStr).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+                }
+            },
+            mounted() {
+                console.log("Admin Panel Loaded - Version: 2026-02-16-UTC-Fix-v2");
+                if (this.token) {
+                    this.login();
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>
