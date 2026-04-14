@@ -44,9 +44,9 @@ def main():
     # 6. 推送
     print(f">> 正在将服务器代码同步至 {REMOTE_REPO}...")
     if run_command(["git", "push", "origin", BRANCH]):
-        print("\n✅ 同步完成！服务器代码已更新。")
+        print("\n[SUCCESS] 同步完成！服务器代码已更新。")
     else:
-        print("\n❌ 同步失败，请检查网络连接或权限。")
+        print("\n[FAILED] 同步失败，请检查网络连接或权限。")
 
     input("\n按回车键退出...")
 
