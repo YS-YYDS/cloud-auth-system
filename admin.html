@@ -682,81 +682,106 @@
             <div class="main-layout mt-6">
 
                 <!-- 凭证发行 -->
-                <aside v-if="currentProduct !== '_ALL_'">
-                    <div class="glass-card p-8">
-                        <h3 class="panel-title"><i class="fas fa-plus-circle text-indigo-500"></i> 发行授权</h3>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">席位</label>
-                                <input type="number" v-model.number="genForm.seats" class="input-standard font-mono">
-                            </div>
-                            <div>
-                                <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">有效期 (天)</label>
-                                <input type="number" v-model.number="genForm.duration_days"
-                                    class="input-standard font-mono">
-                            </div>
+                <aside class="w-80 flex-shrink-0 space-y-6">
+                    <!-- 全面版订阅发行面板 (仅全部产品视图显示) -->
+                    <div v-if="currentProduct === '_ALL_'" class="card p-6 border-l-4 border-yellow-400 shadow-[0_4px_20px_rgba(250,204,21,0.15)]">
+                        <div class="flex items-center space-x-2 mb-4">
+                            <i class="fas fa-crown text-yellow-500 text-xl"></i>
+                            <h2 class="text-lg font-bold">全库订阅版通行证发行</h2>
                         </div>
-                        <div class="mb-2">
-                            <label
-                                class="flex items-center gap-2 p-2 rounded-lg border-2 border-indigo-50 bg-indigo-50/30 cursor-pointer hover:bg-indigo-50 transition">
-                                <input type="checkbox" :checked="isAllProductsSelected"
-                                    @change="toggleSelectAllProducts"
-                                    class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300">
-                                <span class="text-xs font-bold text-indigo-700">全选 / 取消全选</span>
-                            </label>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2 mb-4">
-                            <label v-for="p in products" :key="p"
-                                class="flex items-center gap-2 p-2 rounded-lg border border-slate-100 bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition">
-                                <input type="checkbox" :value="p" v-model="genForm.product_ids"
-                                    class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300">
-                                <div class="flex flex-col">
-                                    <span class="text-xs font-bold text-slate-700">{{ productNames[p] || p }}</span>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="label text-sm opacity-70">订阅总效期 (天)</label>
+                                <input type="number" v-model.number="genForm.duration_days" class="input mt-1" placeholder="例如: 365">
+                                <div class="flex space-x-2 mt-2">
+                                    <button @click="genForm.duration_days = 30" class="btn-sm bg-gray-100 hover:bg-gray-200 text-xs">30天</button>
+                                    <button @click="genForm.duration_days = 365" class="btn-sm bg-gray-100 hover:bg-gray-200 text-xs">1年</button>
                                 </div>
-                            </label>
+                            </div>
+
+                            <div>
+                                <label class="label text-sm opacity-70">备注信息 (可选)</label>
+                                <input type="text" v-model="genForm.remark" class="input mt-1 text-sm" placeholder="订阅通行证备注...">
+                            </div>
+
+                            <button @click="generateSubscriptionKey" 
+                                    :disabled="loading"
+                                    class="btn-primary w-full bg-gradient-to-r from-yellow-500 to-yellow-600 border-none hover:from-yellow-600 hover:to-yellow-700 shadow-lg mt-2">
+                                <span v-if="loading"><i class="fas fa-spinner fa-spin mr-2"></i>生成中...</span>
+                                <span v-else><i class="fas fa-magic mr-2"></i>发行全库通行证</span>
+                            </button>
                         </div>
 
-                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">用户标识 / 备注标签</label>
-                        <input v-model="genForm.contact" placeholder="填写用户昵称或标识..." class="input-standard">
-                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">技术备注</label>
-                        <textarea v-model="genForm.remark" rows="3" class="input-standard scrolling"
-                            style="resize:none;" placeholder="仅限管理员可见的内容..."></textarea>
-
-                        <button @click="generateKey" :disabled="generating" class="btn-primary mt-2">
-                            {{ generating ? '进行中...' : '生成并下发激活码' }}
-                        </button>
-
-                        <div v-if="lastGeneratedKey" @click="copyKey"
-                            class="mt-6 p-4 rounded-xl text-center cursor-pointer transition-all duration-300"
-                            :class="copiedKey === lastGeneratedKey ? 'bg-indigo-600 text-white scale-105 shadow-lg' : 'bg-emerald-50 border border-emerald-100 text-emerald-700 hover:scale-105'">
-                            <div class="text-[9px] font-bold uppercase mb-2"
-                                :class="copiedKey === lastGeneratedKey ? 'text-indigo-100' : 'text-emerald-600'">
-                                {{ copiedKey === lastGeneratedKey ? '✓ 已复制到剪贴板' : '生成成功 (点击复制)' }}
-                            </div>
-                            <div class="text-xl font-mono font-bold break-all">{{ lastGeneratedKey }}</div>
+                        <!-- 订阅生成结果 -->
+                        <div v-if="lastGeneratedKey" class="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200 animate-pulse-once">
+                            <p class="text-xs text-yellow-800 font-bold mb-1">生成成功！全产品订阅凭证：</p>
+                            <code class="block text-sm bg-white p-2 border border-yellow-300 rounded mb-2 select-all font-mono break-all">{{ lastGeneratedKey }}</code>
+                            <button @click="copyKey" class="btn-secondary w-full py-1 text-xs">
+                                <i class="fas fa-copy mr-1"></i>{{ copiedKey === lastGeneratedKey ? '已复制！' : '点击复制凭证' }}
+                            </button>
                         </div>
                     </div>
-                </aside>
 
-                <!-- 宏观上帝视角面板 -->
-                <aside v-else>
-                    <div class="glass-card p-8 flex flex-col justify-center animate-fade-in">
-                        <h3 class="panel-title mb-6"><i class="fas fa-sliders text-indigo-500"></i> 全局推广设置</h3>
-                        <div class="pt-2 mb-6">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block"><i
-                                    class="fas fa-clock mr-1"></i> 全局默认试用天数 (自助生成)</label>
-                            <div class="flex gap-2">
-                                <input v-model="defaultTrialDays" type="number" min="0" placeholder="7"
-                                    class="input-standard !mb-0 text-sm font-mono flex-1">
-                                <button @click="savePromoUrl"
-                                    class="btn-primary flex-none w-[80px] text-xs shadow-none">保存</button>
+                    <!-- 标准发行面板 (仅单品/组合视图显示) -->
+                    <div v-else class="card p-6">
+                        <div class="flex items-center space-x-2 mb-4">
+                            <i class="fas fa-plus-circle text-indigo-500 text-xl"></i>
+                            <h2 class="text-lg font-bold text-gray-800">发行授权 (单品/组合)</h2>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">席位</label>
+                                    <input type="number" v-model.number="genForm.seats" class="input-standard font-mono">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">有效期 (天)</label>
+                                    <input type="number" v-model.number="genForm.duration_days" class="input-standard font-mono">
+                                </div>
                             </div>
-                            <div class="text-[10px] text-gray-400 mt-2 leading-relaxed">
-                                客户端点击“免费试用”时，服务器会自动根据此天数无感派发试用凭证。设置为 0 则代表当前不开放试用。</div>
+                            <div>
+                                <button @click="toggleSelectAllProducts" class="text-xs text-indigo-600 hover:underline mb-2">
+                                    {{ isAllProductsSelected ? '取消全选' : '全选产品' }}
+                                </button>
+                                <div class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 bg-gray-50 rounded border">
+                                    <label v-for="p in products" :key="p" class="flex items-center gap-2 p-1.5 cursor-pointer hover:bg-white rounded transition">
+                                        <input type="checkbox" :value="p" v-model="genForm.product_ids" class="rounded text-indigo-600 focus:ring-indigo-500 border-gray-300">
+                                        <span class="text-[10px] font-bold text-slate-700">{{ productNames[p] || p }}</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <label class="text-[10px] font-bold text-gray-400 uppercase mt-2 block">用户标识 / 技术备注</label>
+                            <input v-model="genForm.contact" placeholder="标识..." class="input-standard">
+                            <textarea v-model="genForm.remark" rows="2" class="input-standard" placeholder="备注..."></textarea>
+
+                            <button @click="generateKey" :disabled="loading" class="btn-primary w-full shadow-md">
+                                <span v-if="loading"><i class="fas fa-spinner fa-spin mr-2"></i>生成中...</span>
+                                <span v-else><i class="fas fa-plus mr-2"></i>生成授权激活码</span>
+                            </button>
                         </div>
 
-                        <div class="pt-6 border-t border-slate-100">
-                            <!-- 全局推广URL已移动至左侧公告区域下方 -->
+                        <!-- 结果显示 -->
+                        <div v-if="lastGeneratedKey" class="mt-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                            <p class="text-[10px] text-indigo-800 font-bold mb-1">最后生成的激活码 (点击复制)：</p>
+                            <code @click="copyKey" class="block text-sm bg-white p-2 border border-indigo-200 rounded mb-2 select-all font-mono text-center cursor-pointer hover:bg-indigo-50">{{ lastGeneratedKey }}</code>
+                        </div>
+                    </div>
+
+                    <!-- 全局推广页设置 (始终显示) -->
+                    <div class="card p-8 flex flex-col justify-center border-t-4 border-indigo-400">
+                        <h3 class="panel-title mb-6"><i class="fas fa-sliders text-indigo-500"></i> 全局推广项</h3>
+                        <div class="pt-2 mb-6">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block"><i class="fas fa-clock mr-1"></i> 默认试用周期 (天)</label>
+                            <div class="flex gap-2">
+                                <input v-model.number="defaultTrialDays" type="number" min="0" placeholder="7" class="input-standard !mb-0 text-sm font-mono flex-1">
+                                <button @click="savePromoUrl" class="btn-primary flex-none w-[80px] text-xs shadow-none">保存</button>
+                            </div>
+                            <div class="text-[10px] text-gray-400 mt-2 leading-relaxed">
+                                客户端“免费试用”时自动派发的长度。
+                            </div>
                         </div>
                     </div>
                 </aside>
@@ -994,7 +1019,8 @@
                     serverStats: null,
                     promoUrl: '',
                     defaultTrialDays: 7,
-                    genForm: { seats: 1, duration_days: 0, contact: '', remark: '', product_ids: [], is_trial: false },
+                    genForm: { product_ids: [], duration_days: 14, remark: '', max_seats: 1 },
+                    lastGeneratedKey: '', // 保存最新生成的激活码 (响应式)
                     editModal: { show: false },
                     editForm: { key: '', user_contact: '', remark: '', max_seats: 1, product_ids: [] },
                 }
@@ -1124,6 +1150,17 @@
                     } else {
                         this.genForm.product_ids = [...this.products];
                     }
+                },
+                copyKey() {
+                    if (!this.lastGeneratedKey) return;
+                    navigator.clipboard.writeText(this.lastGeneratedKey).then(() => {
+                        this.copiedKey = this.lastGeneratedKey;
+                        setTimeout(() => { if (this.copiedKey === this.lastGeneratedKey) this.copiedKey = ''; }, 2000);
+                    });
+                },
+                generateSubscriptionKey() {
+                    this.genForm.product_ids = ['ALL'];
+                    this.generateKey();
                 },
                 async api(endpoint, method = 'POST', body = {}) {
                     this.loading = true;
@@ -1400,6 +1437,15 @@
                     setTimeout(() => {
                         if (this.copiedKey === val) this.copiedKey = '';
                     }, 2000);
+                },
+                copyKey() {
+                    if (!this.lastGeneratedKey) return;
+                    this.copyToClipboard(this.lastGeneratedKey);
+                },
+                generateSubscriptionKey() {
+                    this.genForm.product_ids = ['ALL'];
+                    this.genForm.duration_days = this.genForm.duration_days || 365;
+                    this.generateKey();
                 },
                 toggleSort(key) {
                     if (this.sortKey === key) {
