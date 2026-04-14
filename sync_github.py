@@ -20,6 +20,23 @@ def run_command(cmd, cwd=BASE_DIR):
 def main():
     print("=== YS CloudAuthSystem 自动同步工具 ===")
     
+    # 0. 从根目录同步最新的开发代码 (处理隔离映射)
+    PARENT_DIR = os.path.dirname(BASE_DIR)
+    CORE_FILES = ["admin.html", "main.py", "requirements.txt", "Dockerfile", ".dockerignore"]
+    CORE_DIRS = ["app", "static"]
+    
+    print(">> 正在从工作区同步最新文件...")
+    import shutil
+    for f in CORE_FILES:
+        src = os.path.join(PARENT_DIR, f)
+        if os.path.exists(src): shutil.copy2(src, os.path.join(BASE_DIR, f))
+    for d in CORE_DIRS:
+        src = os.path.join(PARENT_DIR, d)
+        if os.path.exists(src):
+            dst = os.path.join(BASE_DIR, d)
+            if os.path.exists(dst): shutil.rmtree(dst)
+            shutil.copytree(src, dst)
+    
     # 1. 检查状态
     if not os.path.exists(os.path.join(BASE_DIR, ".git")):
         print("!! 错误: 此文件夹未初始化 Git 仓库。正在尝试关联...")
