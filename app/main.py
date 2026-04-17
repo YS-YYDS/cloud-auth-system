@@ -7,6 +7,8 @@ from .api import auth, admin, update
 from .db.session import init_db
 from .core.config import ROOT_DIR
 
+from contextlib import asynccontextmanager
+
 # ===================== 系统初始化 =====================
 logging.basicConfig(
     level=logging.INFO,
@@ -15,9 +17,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger("CloudAuth")
 
-init_db()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 应用启动时初始化数据库
+    init_db()
+    yield
 
-app = FastAPI(title="CloudAuthSystem Industrial")
+app = FastAPI(title="CloudAuthSystem Industrial", lifespan=lifespan)
+
+# ===================== 系统路由与健康检查 =====================
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "service": "CloudAuthSystem"}
 
 # 挂载静态文件
 STATIC_DIR = os.path.join(ROOT_DIR, "static")

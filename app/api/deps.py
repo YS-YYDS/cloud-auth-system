@@ -1,6 +1,7 @@
 import logging
 from fastapi import Header, HTTPException, Request
 from ..core.config import ADMIN_TOKEN
+import secrets
 
 logger = logging.getLogger("CloudAuth.API")
 
@@ -22,10 +23,10 @@ async def check_admin(request: Request, x_admin_token: str = Header(None)):
                 body = await request.json()
                 if isinstance(body, dict):
                     token = body.get("token")
-        except Exception:
+        except ValueError:
             pass
 
-    if not token or token != ADMIN_TOKEN:
+    if not token or not secrets.compare_digest(token, ADMIN_TOKEN):
         logger.warning(f"Admin_Auth: unauthorized attempt, method={request.method}, path={request.url.path}")
         raise HTTPException(status_code=403, detail="Invalid Admin Token")
     return True

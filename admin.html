@@ -542,6 +542,10 @@
                                     class="pill-btn hover:text-indigo-800" title="修改前端显示名称">
                                     <i class="fas fa-pen-to-square text-xs"></i>
                                 </button>
+                                <button v-if="currentProduct !== '_ALL_'" @click="renameProduct"
+                                    class="pill-btn hover:text-amber-600" title="标识更名 (Product ID Migration)">
+                                    <i class="fas fa-fingerprint text-xs"></i>
+                                </button>
                                 <button
                                     v-if="currentProduct !== '_ALL_' && (!deletedProducts || !deletedProducts.includes(currentProduct))"
                                     @click="deleteCurrentProduct" class="pill-btn pill-btn-del" title="将此产品及其授权移入回收站">
@@ -621,8 +625,8 @@
                     </div>
                     <div class="flex flex-col items-end">
                         <span class="text-[10px] text-gray-400 font-bold uppercase tracking-tight">生效模式</span>
-                        <span class="text-[10px] font-bold" :class="annoMode === 'always' ? 'text-orange-500' : 'text-indigo-500'">
-                            {{ annoMode === 'always' ? '强制弹窗 (Always)' : '变动弹窗 (Once)' }}
+                        <span class="text-[10px] font-bold" :class="annoMode === 'daily' ? 'text-orange-500' : 'text-indigo-500'">
+                            {{ annoMode === 'daily' ? '每日弹窗 (Daily)' : '变动弹窗 (Once)' }}
                         </span>
                     </div>
                 </div>
@@ -650,11 +654,10 @@
                             class="transition-all">内容变动才弹 (Once)</span>
                     </label>
                     <label class="flex items-center gap-1.5 cursor-pointer group">
-                        <input type="radio" v-model="annoMode" value="always"
+                        <input type="radio" v-model="annoMode" value="daily"
                             class="w-3.5 h-3.5 text-indigo-600 focus:ring-indigo-500 border-gray-300">
-                        <span :class="annoMode === 'always' ? 'text-indigo-600 font-bold' : 'text-gray-500'"
-                            class="transition-all">强制每次都弹 (Always)</span>
-                    </label>
+                        <span :class="annoMode === 'daily' ? 'text-indigo-600 font-bold' : 'text-gray-500'"
+                            class="transition-all" title="用户每天第一次打开脚本时会看到弹窗">每日弹窗 (Daily)</span>
                     </label>
                 </div>
             </div>
@@ -682,105 +685,119 @@
             <div class="main-layout mt-6">
 
                 <!-- 凭证发行 -->
-                <aside class="w-80 flex-shrink-0 space-y-6">
-                    <!-- 全面版订阅发行面板 (仅全部产品视图显示) -->
-                    <div v-if="currentProduct === '_ALL_'" class="card p-6 border-l-4 border-yellow-400 shadow-[0_4px_20px_rgba(250,204,21,0.15)]">
-                        <div class="flex items-center space-x-2 mb-4">
-                            <i class="fas fa-crown text-yellow-500 text-xl"></i>
-                            <h2 class="text-lg font-bold">全库订阅版通行证发行</h2>
+                <!-- 侧边栏：凭证发行与设置 (Unified Container) -->
+                <aside class="flex flex-col gap-6">
+                    <!-- [A] 标准发行面板 (仅在非全库视图显示) -->
+                    <div v-if="currentProduct !== '_ALL_'" class="glass-card p-8 animate-fade-in shadow-sm">
+                        <h3 class="panel-title mb-4"><i class="fas fa-plus-circle text-indigo-500"></i> 发行授权 (单品/组合)</h3>
+                        <div class="text-[10px] text-gray-400 mb-6 leading-relaxed">
+                            派发包含独立硬件绑定的授权密钥，由本地 AuthCore 校验逻辑接管。
                         </div>
-                        
-                        <div class="space-y-4">
+
+                        <div class="grid grid-cols-2 gap-4 mb-4">
                             <div>
-                                <label class="label text-sm opacity-70">订阅总效期 (天)</label>
-                                <input type="number" v-model.number="genForm.duration_days" class="input mt-1" placeholder="例如: 365">
-                                <div class="flex space-x-2 mt-2">
-                                    <button @click="genForm.duration_days = 30" class="btn-sm bg-gray-100 hover:bg-gray-200 text-xs">30天</button>
-                                    <button @click="genForm.duration_days = 365" class="btn-sm bg-gray-100 hover:bg-gray-200 text-xs">1年</button>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label class="label text-sm opacity-70">备注信息 (可选)</label>
-                                <input type="text" v-model="genForm.remark" class="input mt-1 text-sm" placeholder="订阅通行证备注...">
-                            </div>
-
-                            <button @click="generateSubscriptionKey" 
-                                    :disabled="loading"
-                                    class="btn-primary w-full bg-gradient-to-r from-yellow-500 to-yellow-600 border-none hover:from-yellow-600 hover:to-yellow-700 shadow-lg mt-2">
-                                <span v-if="loading"><i class="fas fa-spinner fa-spin mr-2"></i>生成中...</span>
-                                <span v-else><i class="fas fa-magic mr-2"></i>发行全库通行证</span>
-                            </button>
-                        </div>
-
-                        <!-- 订阅生成结果 -->
-                        <div v-if="lastGeneratedKey" class="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200 animate-pulse-once">
-                            <p class="text-xs text-yellow-800 font-bold mb-1">生成成功！全产品订阅凭证：</p>
-                            <code class="block text-sm bg-white p-2 border border-yellow-300 rounded mb-2 select-all font-mono break-all">{{ lastGeneratedKey }}</code>
-                            <button @click="copyKey" class="btn-secondary w-full py-1 text-xs">
-                                <i class="fas fa-copy mr-1"></i>{{ copiedKey === lastGeneratedKey ? '已复制！' : '点击复制凭证' }}
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- 标准发行面板 (仅单品/组合视图显示) -->
-                    <div v-else class="card p-6">
-                        <div class="flex items-center space-x-2 mb-4">
-                            <i class="fas fa-plus-circle text-indigo-500 text-xl"></i>
-                            <h2 class="text-lg font-bold text-gray-800">发行授权 (单品/组合)</h2>
-                        </div>
-                        
-                        <div class="space-y-4">
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">席位</label>
-                                    <input type="number" v-model.number="genForm.seats" class="input-standard font-mono">
-                                </div>
-                                <div>
-                                    <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">有效期 (天)</label>
-                                    <input type="number" v-model.number="genForm.duration_days" class="input-standard font-mono">
-                                </div>
+                                <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">席位</label>
+                                <input type="number" v-model.number="genForm.seats" class="input-standard font-mono">
                             </div>
                             <div>
-                                <button @click="toggleSelectAllProducts" class="text-xs text-indigo-600 hover:underline mb-2">
-                                    {{ isAllProductsSelected ? '取消全选' : '全选产品' }}
+                                <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">有效期 (天)</label>
+                                <input type="number" v-model.number="genForm.duration_days" class="input-standard font-mono">
+                            </div>
+                        </div>
+
+                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">选择授权产品 (可多选)</label>
+                        <div class="mb-4 bg-slate-50/30 p-4 rounded-xl border border-slate-100 max-h-[160px] overflow-y-auto scrolling">
+                            <div class="flex items-center justify-between mb-2 pb-2 border-b border-slate-50">
+                                <span class="text-[10px] font-bold text-slate-500">快速控制</span>
+                                <button @click="toggleSelectAllProducts" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800">
+                                    {{ isAllProductsSelected ? '取消全选' : '选择全部已上线' }}
                                 </button>
-                                <div class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 bg-gray-50 rounded border">
-                                    <label v-for="p in products" :key="p" class="flex items-center gap-2 p-1.5 cursor-pointer hover:bg-white rounded transition">
-                                        <input type="checkbox" :value="p" v-model="genForm.product_ids" class="rounded text-indigo-600 focus:ring-indigo-500 border-gray-300">
-                                        <span class="text-[10px] font-bold text-slate-700">{{ productNames[p] || p }}</span>
-                                    </label>
-                                </div>
                             </div>
-
-                            <label class="text-[10px] font-bold text-gray-400 uppercase mt-2 block">用户标识 / 技术备注</label>
-                            <input v-model="genForm.contact" placeholder="标识..." class="input-standard">
-                            <textarea v-model="genForm.remark" rows="2" class="input-standard" placeholder="备注..."></textarea>
-
-                            <button @click="generateKey" :disabled="loading" class="btn-primary w-full shadow-md">
-                                <span v-if="loading"><i class="fas fa-spinner fa-spin mr-2"></i>生成中...</span>
-                                <span v-else><i class="fas fa-plus mr-2"></i>生成授权激活码</span>
-                            </button>
+                            <div class="grid grid-cols-1 gap-2">
+                                <label v-for="p in products" :key="p" class="checkbox-item group flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" :value="p" v-model="genForm.product_ids"
+                                        class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300">
+                                    <span class="text-xs text-slate-600 transition-colors group-hover:text-slate-900">{{ productNames[p] || p }}</span>
+                                </label>
+                            </div>
                         </div>
 
-                        <!-- 结果显示 -->
-                        <div v-if="lastGeneratedKey" class="mt-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-                            <p class="text-[10px] text-indigo-800 font-bold mb-1">最后生成的激活码 (点击复制)：</p>
-                            <code @click="copyKey" class="block text-sm bg-white p-2 border border-indigo-200 rounded mb-2 select-all font-mono text-center cursor-pointer hover:bg-indigo-50">{{ lastGeneratedKey }}</code>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">用户标识 / 备注</label>
+                        <input v-model="genForm.contact" placeholder="填写用户昵称或标识..." class="input-standard">
+                        
+                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block mt-2">管理员备注</label>
+                        <textarea v-model="genForm.remark" rows="2" class="input-standard scrolling" style="resize:none;" placeholder="仅限管理员可见..."></textarea>
+
+                        <button @click="generateKey" :disabled="generating" class="btn-primary mt-4 transform active:scale-95 transition-all">
+                            <i class="fas fa-wand-magic-sparkles mr-2"></i> {{ generating ? '生成中...' : '生成激活码' }}
+                        </button>
+
+                        <!-- [单品版] 生成结果展示 -->
+                        <div v-if="lastGeneratedKey && currentProduct !== '_ALL_'" @click="copyKey"
+                            class="mt-6 p-4 rounded-xl text-center cursor-pointer transition-all duration-300 bg-emerald-50 border border-emerald-100 text-emerald-700 hover:scale-105 shadow-sm">
+                            <div class="text-[9px] font-bold uppercase mb-2 text-emerald-600">
+                                {{ copiedKey === lastGeneratedKey ? '✓ 已复制到剪贴板' : '生成成功 (点击复制)' }}
+                            </div>
+                            <div class="text-xl font-mono font-bold break-all">{{ lastGeneratedKey }}</div>
                         </div>
                     </div>
 
-                    <!-- 全局推广页设置 (始终显示) -->
-                    <div class="card p-8 flex flex-col justify-center border-t-4 border-indigo-400">
-                        <h3 class="panel-title mb-6"><i class="fas fa-sliders text-indigo-500"></i> 全局推广项</h3>
-                        <div class="pt-2 mb-6">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block"><i class="fas fa-clock mr-1"></i> 默认试用周期 (天)</label>
+                    <!-- [B] 针对全局的全库订阅版面板 (仅在全库视图显示) -->
+                    <div v-if="currentProduct === '_ALL_'" class="glass-card p-8 animate-fade-in shadow-sm">
+                        <h3 class="panel-title mb-4"><i class="fas fa-globe-asia text-indigo-500"></i> 全局订阅通行证发行</h3>
+                        <div class="text-[10px] text-gray-400 mb-6 leading-relaxed">
+                            发行包含全部产品的订阅制卡密，具有独立的离线锁定与对账机制。
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">席位</label>
+                                <input type="number" v-model.number="subGenForm.seats" class="input-standard font-mono">
+                            </div>
+                            <div class="flex flex-col">
+                                <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">快速期限</label>
+                                <div class="flex gap-2 h-[46px]">
+                                    <button @click="subGenForm.duration_days = 30" class="btn-primary flex-1 !p-0 !bg-indigo-50 !text-indigo-600 hover:!bg-indigo-100 shadow-none text-sm transition-colors border border-indigo-100">30天</button>
+                                    <button @click="subGenForm.duration_days = 365" class="btn-primary flex-1 !p-0 !bg-indigo-50 !text-indigo-600 hover:!bg-indigo-100 shadow-none text-sm transition-colors border border-indigo-100">365天</button>
+                                </div>
+                            </div>
+                            <div class="col-span-2">
+                                <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">订阅总效期 (天)</label>
+                                <input type="number" v-model.number="subGenForm.duration_days" class="input-standard font-mono">
+                            </div>
+                        </div>
+
+                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">用户标识 / 备注标签</label>
+                        <input v-model="subGenForm.contact" placeholder="填写订阅用户标识..." class="input-standard">
+                        
+                        <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block mt-2">管理员备注</label>
+                        <textarea v-model="subGenForm.remark" rows="2" class="input-standard scrolling" style="resize:none;" placeholder="订阅特殊用途备注..."></textarea>
+
+                        <button @click="generateSubscriptionKey" :disabled="generating" class="btn-primary mt-4 transform active:scale-95 transition-all">
+                            <i class="fas fa-wand-magic-sparkles mr-2"></i> {{ generating ? '生成中...' : '生成全局订阅卡密' }}
+                        </button>
+
+                        <!-- [订阅版] 生成结果展示 -->
+                        <div v-if="lastGeneratedKey && currentProduct === '_ALL_'" @click="copyKey"
+                            class="mt-6 p-4 rounded-xl text-center cursor-pointer transition-all duration-300 bg-emerald-50 border border-emerald-100 text-emerald-700 hover:scale-105 shadow-sm">
+                            <div class="text-[9px] font-bold uppercase mb-2 text-emerald-600">
+                                {{ copiedKey === lastGeneratedKey ? '✓ 已复制到剪贴板' : '生成成功 (点击复制)' }}
+                            </div>
+                            <div class="text-xl font-mono font-bold break-all">{{ lastGeneratedKey }}</div>
+                        </div>
+                    </div>
+
+                    <!-- [C] 始终显示的全局配置面板 -->
+                    <div v-if="currentProduct === '_ALL_'" class="glass-card p-8 animate-fade-in shadow-sm">
+                        <h3 class="panel-title mb-6"><i class="fas fa-sliders text-indigo-500"></i> 全局推广设置</h3>
+                        <div class="pt-2">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase mb-2 block"><i class="fas fa-clock mr-1"></i> 全局默认试用天数</label>
                             <div class="flex gap-2">
-                                <input v-model.number="defaultTrialDays" type="number" min="0" placeholder="7" class="input-standard !mb-0 text-sm font-mono flex-1">
+                                <input v-model="defaultTrialDays" type="number" min="0" placeholder="7" class="input-standard !mb-0 text-sm font-mono flex-1">
                                 <button @click="savePromoUrl" class="btn-primary flex-none w-[80px] text-xs shadow-none">保存</button>
                             </div>
                             <div class="text-[10px] text-gray-400 mt-2 leading-relaxed">
-                                客户端“免费试用”时自动派发的长度。
+                                设置为 0 代表当前不开放自助试用。其余推广配置已移动至公告栏下方。
                             </div>
                         </div>
                     </div>
@@ -806,7 +823,10 @@
                                         class="px-3 py-1 rounded-md transition-all">离线 ({{ productFilteredLicenses.filter(l => l.status !== 'deleted' && !isOnline(l)).length }})</button>
                                     <button @click="filterMode = 'trial'"
                                         :class="filterMode === 'trial' ? 'bg-white shadow-sm text-orange-600' : 'text-gray-400'"
-                                        class="px-3 py-1 rounded-md transition-all">试用 ({{ productFilteredLicenses.filter(l => l.status !== 'deleted' && l.is_trial).length }})</button>
+                                        class="px-3 py-1 rounded-md transition-all">试用 ({{ productFilteredLicenses.filter(l => l.status !== 'deleted' && l.is_trial && !l.is_subscription && !(l.product_id && l.product_id.includes('ALL'))).length }})</button>
+                                    <button @click="filterMode = 'subscription'"
+                                        :class="filterMode === 'subscription' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400'"
+                                        class="px-3 py-1 rounded-md transition-all">订阅 ({{ productFilteredLicenses.filter(l => l.status !== 'deleted' && (l.is_subscription || (l.product_id && l.product_id.includes('ALL')))).length }})</button>
                                     <button @click="filterMode = 'deleted'"
                                         :class="filterMode === 'deleted' ? 'bg-white shadow-sm text-red-500' : 'text-gray-400'"
                                         class="px-3 py-1 rounded-md transition-all"><i
@@ -868,14 +888,12 @@
                                                 <span v-if="copiedKey === lic.key"
                                                     class="text-[10px] animate-bounce">✓</span>
                                             </div>
-                                            <div v-if="lic.remark"
-                                                class="text-[10px] text-gray-400 mt-2 italic max-w-xs">{{
-                                                lic.remark }}
-                                            </div>
                                         </td>
                                         <td class="text-center">
                                             <div class="flex flex-col items-center">
-                                                <span v-if="lic.is_trial"
+                                                <span v-if="lic.is_subscription || (lic.product_id && lic.product_id.split(',').map(p=>p.trim()).includes('ALL'))"
+                                                    class="badge bg-indigo-100 text-indigo-600 px-3 py-1 scale-110 shadow-sm border border-indigo-200">订阅</span>
+                                                <span v-else-if="lic.is_trial"
                                                     class="badge bg-orange-100 text-orange-600 px-3 py-1 scale-110">试用</span>
                                                 <span v-else
                                                     class="badge bg-indigo-100 text-indigo-600 px-3 py-1 scale-110">正式</span>
@@ -937,9 +955,8 @@
                         </div>
                     </div>
                 </main>
+            <!-- END MAIN CONTENT -->
             </div>
-
-            </footer>
 
             <!-- 编辑模态框 -->
             <div v-if="editModal.show"
@@ -988,8 +1005,10 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
+            <!-- END MODAL -->
+
+        </div> <!-- END dashboard-container -->
+    </div> <!-- END app -->
 
     <!-- CDN 依赖 (无需本地 static 目录) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -1015,12 +1034,14 @@
                     currentDisplayName: '',
                     copiedKey: '',
                     filterMode: 'all', // all, online, offline
+                    sortKey: 'last_active_at',
                     sortOrder: 'desc', // desc, asc
                     serverStats: null,
                     promoUrl: '',
                     defaultTrialDays: 7,
-                    genForm: { product_ids: [], duration_days: 14, remark: '', max_seats: 1 },
-                    lastGeneratedKey: '', // 保存最新生成的激活码 (响应式)
+                    genForm: { seats: 1, duration_days: 0, contact: '', remark: '', product_ids: [], is_trial: false },
+                    subGenForm: { seats: 1, duration_days: 30, contact: '', remark: '' }, // 独立订阅表单，防止有效期污染
+                    lastGeneratedKey: '', // 新增：保存最新生成的激活码 (响应式)
                     editModal: { show: false },
                     editForm: { key: '', user_contact: '', remark: '', max_seats: 1, product_ids: [] },
                 }
@@ -1070,13 +1091,13 @@
                     } else {
                         filtered = filtered.filter(l => l.status !== 'deleted');
                         if (this.filterMode === 'online') {
-                            const now = new Date();
-                            filtered = filtered.filter(l => l.last_active_at && (now - new Date(l.last_active_at + (l.last_active_at.endsWith('Z') ? '' : 'Z'))) / 3600000 < 24);
+                            filtered = filtered.filter(l => this.isOnline(l));
                         } else if (this.filterMode === 'offline') {
-                            const now = new Date();
-                            filtered = filtered.filter(l => !l.last_active_at || (now - new Date(l.last_active_at + (l.last_active_at.endsWith('Z') ? '' : 'Z'))) / 3600000 >= 24);
+                            filtered = filtered.filter(l => !this.isOnline(l));
                         } else if (this.filterMode === 'trial') {
-                            filtered = filtered.filter(l => l.is_trial);
+                            filtered = filtered.filter(l => l.is_trial && !l.is_subscription && !(l.product_id && l.product_id.includes('ALL')));
+                        } else if (this.filterMode === 'subscription') {
+                            filtered = filtered.filter(l => l.is_subscription || (l.product_id && l.product_id.split(',').map(p=>p.trim()).includes('ALL')));
                         }
                     }
 
@@ -1100,11 +1121,10 @@
                             valB = b[this.sortKey];
                         }
 
-                        if (this.sortOrder === 'desc') {
-                            return valB > valA ? 1 : (valB < valA ? -1 : 0);
-                        } else {
-                            return valA > valB ? 1 : (valA < valB ? -1 : 0);
+                        if (typeof valA === 'string' && typeof valB === 'string') {
+                            return this.sortOrder === 'desc' ? valB.localeCompare(valA) : valA.localeCompare(valB);
                         }
+                        return this.sortOrder === 'desc' ? valB - valA : valA - valB;
                     });
 
                     return filtered;
@@ -1140,9 +1160,11 @@
             methods: {
                 isOnline(l) {
                     if (!l.last_active_at) return false;
-                    const now = new Date();
-                    const dateStr = l.last_active_at + (l.last_active_at.endsWith('Z') ? '' : 'Z');
-                    return (now - new Date(dateStr)) / 3600000 < 24;
+                    let dateStr = l.last_active_at;
+                    if (!dateStr.endsWith('Z') && !dateStr.includes('+')) {
+                        dateStr += 'Z';
+                    }
+                    return (Date.now() - new Date(dateStr).getTime()) / 3600000 < 24;
                 },
                 toggleSelectAllProducts() {
                     if (this.isAllProductsSelected) {
@@ -1158,9 +1180,19 @@
                         setTimeout(() => { if (this.copiedKey === this.lastGeneratedKey) this.copiedKey = ''; }, 2000);
                     });
                 },
-                generateSubscriptionKey() {
-                    this.genForm.product_ids = ['ALL'];
-                    this.generateKey();
+                async generateSubscriptionKey() {
+                    const data = await this.api('/admin/generate', 'POST', {
+                        seats: this.subGenForm.seats,
+                        duration_days: this.subGenForm.duration_days,
+                        contact: this.subGenForm.contact,
+                        remark: this.subGenForm.remark,
+                        product_ids: ['ALL'],
+                        is_trial: false
+                    });
+                    if (data) {
+                        this.lastGeneratedKey = data.key;
+                        this.fetchStats();
+                    }
                 },
                 async api(endpoint, method = 'POST', body = {}) {
                     this.loading = true;
@@ -1178,7 +1210,7 @@
                         const data = await res.json();
                         if (!res.ok) {
                             if (res.status === 403) { this.isAuthenticated = false; }
-                            alert(data.msg || data.detail || '令牌验证失败');
+                            alert(data?.msg || data?.detail || '令牌验证失败');
                             return null;
                         }
                         return data;
@@ -1213,7 +1245,7 @@
                         
                         // 2. 获取所有产品并确保与已删除列表互斥
                         const all = data.all_products || ['ArchivePro'];
-                        this.products = all.filter(p => !['_ALL_', '全部', '全部产品'].includes(p) && !deleted.includes(p));
+                        this.products = all.filter(p => !['_ALL_', '全部', '全部产品', 'ALL', 'all'].includes(p) && !deleted.includes(p));
                         
                         this.productNames = data.product_names || {};
                         this.serverStats = data.stats || null;
@@ -1233,8 +1265,8 @@
                     const newName = prompt("标识更名 (Product ID):", oldName);
                     if (newName && newName !== oldName) {
                         const res = await this.api('/admin/rename_product', 'POST', {
-                            old_name: oldName,
-                            new_name: newName
+                            old_id: oldName,
+                            new_id: newName
                         });
                         if (res) {
                             this.currentProduct = newName;
@@ -1282,7 +1314,7 @@
                     if (!confirm("【高危操作】此操作将彻底物理删除回收站内所有产品及其关联授权记录，且不可恢复！\n\n确定要清空吗？")) return;
                     const res = await this.api('/admin/purge_trash', 'POST');
                     if (res) {
-                        alert(res.msg);
+                        alert(`清理成功！共销毁了 ${res.count || 0} 个凭证及全部产品数据。`);
                         this.fetchStats();
                         this.filterMode = 'all';
                     }
@@ -1424,28 +1456,12 @@
                     });
                     await this.fetchAnnouncement();
                 },
-                copyKey() {
-                    navigator.clipboard.writeText(this.lastGeneratedKey);
-                    this.copiedKey = this.lastGeneratedKey;
-                    setTimeout(() => {
-                        if (this.copiedKey === this.lastGeneratedKey) this.copiedKey = '';
-                    }, 2000);
-                },
                 copyToClipboard(val) {
                     navigator.clipboard.writeText(val);
                     this.copiedKey = val;
                     setTimeout(() => {
                         if (this.copiedKey === val) this.copiedKey = '';
                     }, 2000);
-                },
-                copyKey() {
-                    if (!this.lastGeneratedKey) return;
-                    this.copyToClipboard(this.lastGeneratedKey);
-                },
-                generateSubscriptionKey() {
-                    this.genForm.product_ids = ['ALL'];
-                    this.genForm.duration_days = this.genForm.duration_days || 365;
-                    this.generateKey();
                 },
                 toggleSort(key) {
                     if (this.sortKey === key) {
@@ -1472,12 +1488,13 @@
                 },
                 formatRelativeTime(iso) {
                     if (!iso) return '从未连接';
-                    // Fix: Force treat server time as UTC if it lacks timezone info to fix "8 hours ago" issue
+                    // Normalize: If the ISO string lacks timezone info, we assume UTC by appending 'Z'
+                    // This ensures consistent Date.now() subtraction regardless of client local time.
                     let dateStr = iso;
                     if (!dateStr.endsWith('Z') && !dateStr.includes('+')) {
                         dateStr += 'Z';
                     }
-                    const diff = (new Date() - new Date(dateStr)) / 1000;
+                    const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
                     if (diff < 60) return '刚才';
                     if (diff < 3600) return Math.floor(diff / 60) + ' 分钟前';
                     if (diff < 86400) return Math.floor(diff / 3600) + ' 小时前';

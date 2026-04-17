@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from datetime import datetime, timedelta, timezone
 import logging
 from ..core.crypto import derive_session_key, encrypt_response
@@ -13,18 +13,18 @@ logger = logging.getLogger("CloudAuth.Auth")
 limiter = SimpleRateLimiter(60)
 
 @router.post("/verify")
-def verify_license(req: VerifyRequest, request: Request):
+def verify_license(req: VerifyRequest, request: Request, conn=Depends(get_db)):
     dyn_armor_key = derive_session_key(req.license_key, req.product_id) if req.version == "2.0" else None
     
     def _respond(data: dict):
         return encrypt_response(data, req.device_id, dyn_armor_key=dyn_armor_key)
 
-    client_ip = request.client.host
+    client_ip = request.client.host if request.client else "127.0.0.1"
     if not limiter.is_allowed(client_ip):
         logger.warning(f"RateLimit_Exceeded: ip={client_ip}")
         raise HTTPException(status_code=429, detail="Too many requests.")
 
-    conn = get_db()
+
     c = conn.cursor()
     promo_url = get_promo_url(c, req.product_id)
 
@@ -32,16 +32,22 @@ def verify_license(req: VerifyRequest, request: Request):
     row = c.fetchone()
 
     if not row:
-        conn.close()
+# 已由 Depends 自动管理
         return _respond({"status": "error", "message": "激活码不存在", "promo_url": promo_url})
 
     allowed_pids = [p.strip() for p in row["product_id"].split(",")]
-    if req.product_id not in allowed_pids:
-        conn.close()
-        return _respond({"status": "error", "message": f"不包含产品: {req.product_id}", "promo_url": promo_url})
+    is_subscription = "ALL" in allowed_pids
+    
+    if req.product_id == "0":
+        # [LDK-FIX] 脱敏日志：仅记录产品数量而非完整列表，防止业务泄密
+        logger.info(f"Verify_Wildcard: key={req.license_key[:8]} product_count={len(allowed_pids)}")
+    else:
+        if req.product_id not in allowed_pids and not is_subscription:
+            # 由 Depends(get_db) 自动管理
+            return _respond({"status": "error", "message": f"不包含产品: {req.product_id}", "promo_url": promo_url})
 
     if row["status"] == "banned":
-        conn.close()
+        # conn.close() 移除
         return _respond({"status": "error", "message": "授权已封禁", "promo_url": promo_url})
 
     now_ts = datetime.now(timezone.utc)
@@ -52,28 +58,32 @@ def verify_license(req: VerifyRequest, request: Request):
             if exp_date.tzinfo is None:
                 exp_date = exp_date.replace(tzinfo=timezone.utc)
             if now_ts > exp_date:
-                c.execute("UPDATE licenses SET status='expired' WHERE key=?", (req.license_key,))
-                conn.commit()
-                conn.close()
+                # conn.commit() 移除：验证逻辑原则上不应在此强制 commit，由生命周期管理
+                # conn.close() 移除
                 return _respond({"status": "error", "message": "授权已过期", "promo_url": promo_url})
         except Exception as e:
             logger.warning(f"Verify_ExpiryErr: key={req.license_key} err={e}")
 
     # 获取公告
-    c.execute("SELECT value FROM system_config WHERE key='announcement_global'")
-    global_anno = c.fetchone()
-    if global_anno and global_anno[0]:
-        announcement = global_anno[0]
-        c.execute("SELECT value FROM system_config WHERE key='anno_mode_global'")
-        mode_row = c.fetchone()
-        anno_mode = mode_row[0] if mode_row else "once"
-    else:
-        c.execute("SELECT value FROM system_config WHERE key=?", (f"announcement_{req.product_id}",))
-        anno_row = c.fetchone()
-        announcement = anno_row[0] if anno_row else ""
-        c.execute("SELECT value FROM system_config WHERE key=?", (f"anno_mode_{req.product_id}",))
-        mode_row = c.fetchone()
-        anno_mode = mode_row[0] if mode_row else "once"
+    announcement = ""
+    anno_mode = "once"
+    try:
+        c.execute("SELECT value FROM system_config WHERE key='announcement_global'")
+        global_anno = c.fetchone()
+        if global_anno and global_anno[0]:
+            announcement = global_anno[0]
+            c.execute("SELECT value FROM system_config WHERE key='anno_mode_global'")
+            mode_row = c.fetchone()
+            anno_mode = mode_row[0] if mode_row else "once"
+        else:
+            c.execute("SELECT value FROM system_config WHERE key=?", (f"announcement_{req.product_id}",))
+            anno_row = c.fetchone()
+            announcement = anno_row[0] if anno_row else ""
+            c.execute("SELECT value FROM system_config WHERE key=?", (f"anno_mode_{req.product_id}",))
+            mode_row = c.fetchone()
+            anno_mode = mode_row[0] if mode_row else "once"
+    except Exception as e:
+        logger.warning(f"Verify_AnnoErr: prod={req.product_id} err={e}")
 
     is_trial = bool(row["is_trial"])
     expiry_ts = 0
@@ -92,12 +102,13 @@ def verify_license(req: VerifyRequest, request: Request):
     if req.device_id in current_devices:
         c.execute("UPDATE licenses SET last_active_at=?, last_error=NULL WHERE key=?", (now_ts.isoformat(), req.license_key))
         conn.commit()
-        conn.close()
+# 已由 Depends 自动管理
         logger.info(f"Verify: success key={req.license_key[:8]}***")
         return _respond({
             "status": "success", "message": "验证通过",
             "announcement": announcement, "anno_mode": anno_mode,
-            "is_trial": is_trial, "expiry_ts": expiry_ts,
+            "is_trial": is_trial, "is_subscription": is_subscription, "expiry_ts": expiry_ts,
+            "products": {pid: {"expiry_ts": expiry_ts} for pid in allowed_pids}, 
             "promo_url": promo_url, "server_time": server_time,
         })
 
@@ -114,15 +125,15 @@ def verify_license(req: VerifyRequest, request: Request):
                 last_active = datetime.fromisoformat(row["last_active_at"])
                 if last_active.tzinfo is None:
                     last_active = last_active.replace(tzinfo=timezone.utc)
-                if (now_ts - last_active).total_seconds() >= 259200: # 3 days bypass
+                if now_ts - last_active >= timedelta(days=3): # 3 days bypass
                     can_bypass = True
-            except (ValueError, TypeError) as e:
+            except (ValueError, TypeError, Exception) as e:
                 logger.warning(f"Verify_ActiveParseErr: key={req.license_key[:8]} err={e}")
 
         if not can_bypass:
             c.execute("UPDATE licenses SET last_error=? WHERE key=?", (f"换绑超限: {cur_month}", req.license_key))
             conn.commit()
-            conn.close()
+            # conn.close() 移除：由 Depends(get_db) 自动管理
             return _respond({"status": "error", "message": "该授权每月仅限换绑设备 1 次"})
 
     # 挤号 FIFO
@@ -143,32 +154,36 @@ def verify_license(req: VerifyRequest, request: Request):
     c.execute("INSERT INTO heartbeat_logs (license_key, device_id, timestamp) VALUES (?, ?, ?)",
               (req.license_key, req.device_id, now_ts.isoformat()))
     conn.commit()
-    conn.close()
+    # conn.close() 移除：由 Depends(get_db) 自动管理
     logger.info(f"Verify: new_device_bound key={req.license_key[:8]}***")
     return _respond({
         "status": "success", "message": "激活成功",
         "announcement": announcement, "anno_mode": anno_mode,
-        "is_trial": is_trial, "expiry_ts": expiry_ts,
+        "is_trial": is_trial, "is_subscription": is_subscription, "expiry_ts": expiry_ts,
+        "products": {pid: {"expiry_ts": expiry_ts} for pid in allowed_pids},
         "promo_url": promo_url, "server_time": server_time,
     })
 
 @router.post("/api/request_trial")
-def api_request_trial(req: RequestTrialRequest, request: Request):
-    client_ip = request.client.host
+def api_request_trial(req: RequestTrialRequest, request: Request, conn=Depends(get_db)):
+    client_ip = request.client.host if request.client else "127.0.0.1"
     if not limiter.is_allowed(client_ip):
         logger.warning(f"RateLimit_Exceeded: ip={client_ip} route=request_trial")
         raise HTTPException(status_code=429, detail="Too many requests.")
 
-    conn = get_db()
+
     c = conn.cursor()
     promo_url = get_promo_url(c, req.product_id)
     
     # [P0-FIX] 安全修复：使用精确分段匹配替代不安全的 LIKE，防止通配符注入攻击。
-    d_exact = req.hardware_id
-    c.execute("""SELECT key FROM licenses WHERE is_trial=1 AND product_id=? 
-                 AND (activated_devices=? OR activated_devices LIKE ? 
-                      OR activated_devices LIKE ? OR activated_devices LIKE ?)""",
-              (req.product_id, d_exact, f"{d_exact},%", f"%,{d_exact}", f"%,{d_exact},%"))
+    # 对 hardware_id 进行转义以防 LIKE 注入
+    d_raw = req.hardware_id or ""
+    d_exact = d_raw.replace("/", "//").replace("%", "/%").replace("_", "/_")
+    
+    c.execute("""SELECT key, expires_at FROM licenses WHERE is_trial=1 AND product_id=? 
+                 AND (activated_devices=? OR activated_devices LIKE ? ESCAPE '/'
+                      OR activated_devices LIKE ? ESCAPE '/' OR activated_devices LIKE ? ESCAPE '/')""",
+              (req.product_id, d_raw, f"{d_exact},%", f"%,{d_exact}", f"%,{d_exact},%"))
     
     existing_row = c.fetchone()
     
@@ -176,16 +191,23 @@ def api_request_trial(req: RequestTrialRequest, request: Request):
     trial_armor_key = derive_session_key(req.hardware_id, req.product_id)
 
     if existing_row:
-        logger.info(f"Trial_Request: recovered_existing device={d_exact[:12]}...")
-        existing_key = existing_row[0]
-        conn.close()
+        logger.info(f"Trial_Request: recovered_existing device={d_raw[:12]}...")
+        existing_key = existing_row["key"]
+        recovered_expiry = 0
+        if existing_row["expires_at"]:
+            try:
+                recovered_expiry = int(datetime.fromisoformat(existing_row["expires_at"]).timestamp())
+            except Exception: pass
+
+        # 由 Depends 自动管理
         return encrypt_response({
             "status": "error", 
             "already_used": True, 
             "recovered": True, 
             "license_key": existing_key, 
+            "products": {req.product_id: {"expiry_ts": recovered_expiry}},
             "message": "检测到已有试用记录，正在自动找回..."
-        }, d_exact, dyn_armor_key=trial_armor_key)
+        }, d_raw, dyn_armor_key=trial_armor_key)
 
     c.execute("SELECT value FROM system_config WHERE key='default_trial_days__ALL_'")
     trial_days_row = c.fetchone()
@@ -194,8 +216,13 @@ def api_request_trial(req: RequestTrialRequest, request: Request):
     new_key = generate_serial_number()
     expires_at = (datetime.now(timezone.utc) + timedelta(days=trial_days)).isoformat()
     c.execute("INSERT INTO licenses (key, max_seats, activated_devices, status, product_id, is_trial, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-              (new_key, 1, d_exact, 'active', req.product_id, 1, expires_at))
+              (new_key, 1, d_raw, 'active', req.product_id, 1, expires_at))
     conn.commit()
-    conn.close()
-    logger.info(f"Trial_Request: success device={d_exact[:12]}... key={new_key[:8]}***")
-    return encrypt_response({"status": "success", "license_key": new_key, "promo_url": promo_url}, d_exact, dyn_armor_key=trial_armor_key)
+    # conn.close() 移除：由 Depends(get_db) 自动管理
+    logger.info(f"Trial_Request: success device={d_raw[:12]}... key={new_key[:8]}***")
+    return encrypt_response({
+        "status": "success", 
+        "license_key": new_key, 
+        "products": {req.product_id: {"expiry_ts": int(datetime.fromisoformat(expires_at).timestamp())}},
+        "promo_url": promo_url
+    }, d_raw, dyn_armor_key=trial_armor_key)

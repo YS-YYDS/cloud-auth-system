@@ -2,10 +2,13 @@ from fastapi import APIRouter, HTTPException, Depends
 from ..db.session import get_db
 from ..models.schemas import ScriptUpdateCheck, ScriptRegisterRequest
 from ..core.config import ADMIN_TOKEN
+from .deps import check_admin
 import logging
 
 router = APIRouter()
 logger = logging.getLogger("CloudAuth.Update")
+
+from packaging import version
 
 @router.post("/check")
 def check_update(req: ScriptUpdateCheck, db=Depends(get_db)):
@@ -18,9 +21,11 @@ def check_update(req: ScriptUpdateCheck, db=Depends(get_db)):
         return {"update_available": False, "message": "Script not registered"}
     
     latest_version = script["latest_version"]
-    # 简单的版本对比逻辑 (1.2.0 > 1.1.0)
-    # 后续可引入 packaging.version 进行精准语义化对比
-    has_update = latest_version != req.current_version
+    # [P0-FIX] 使用 packaging.version 进行精准语义化对比 (适配 2.0 > 1.9 等情况)
+    try:
+        has_update = version.parse(latest_version) > version.parse(req.current_version)
+    except Exception:
+        has_update = latest_version != req.current_version
     
     return {
         "update_available": has_update,
@@ -40,10 +45,8 @@ def list_all_scripts(db=Depends(get_db)):
     return [dict(row) for row in c.fetchall()]
 
 @router.post("/register")
-def register_or_update_script(req: ScriptRegisterRequest, db=Depends(get_db)):
+def register_or_update_script(req: ScriptRegisterRequest, _=Depends(check_admin), db=Depends(get_db)):
     """管理员录入或更新脚本版本信息"""
-    if req.token != ADMIN_TOKEN:
-        raise HTTPException(status_code=403, detail="Invalid admin token")
     
     c = db.cursor()
     c.execute('''INSERT OR REPLACE INTO scripts_registry 

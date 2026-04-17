@@ -3,8 +3,8 @@ from typing import Optional, List, Literal
 
 class VerifyRequest(BaseModel):
     license_key: str = Field(..., pattern=r"^YS-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$", max_length=20)
-    device_id: str = Field(..., min_length=8, max_length=64)
-    product_id: str = Field(..., min_length=2, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
+    device_id: str = Field(..., min_length=8, max_length=64, pattern=r"^[a-zA-Z0-9_\-]+$")
+    product_id: str = Field(..., min_length=1, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
     version: Literal["1.0", "2.0"] = "1.0"
 
 class GenerateRequest(BaseModel):
@@ -29,9 +29,9 @@ class ResetRequest(AdminRequest):
 
 class AnnouncementRequest(BaseModel):
     token: str
-    product_id: str = Field(..., min_length=2, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
+    product_id: str = Field(..., min_length=1, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
     message: str = Field(..., max_length=1000)
-    anno_mode: Literal["once", "always"] = "once"
+    anno_mode: Literal["once", "daily"] = "once"
 
 class DeleteRequest(AdminRequest):
     pass
@@ -46,12 +46,12 @@ class PurgeTrashRequest(AdminRequest):
 
 class RenameProductRequest(BaseModel):
     token: str
-    old_name: str
-    new_name: str
+    old_id: str
+    new_id: str
 
 class DeleteProductRequest(BaseModel):
     token: str
-    product_id: str = Field(..., min_length=2, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
+    product_id: str = Field(..., min_length=1, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
 
 class DisplayNameRequest(BaseModel):
     token: str
@@ -60,13 +60,13 @@ class DisplayNameRequest(BaseModel):
 
 class UpdatePromoUrlRequest(BaseModel):
     token: str
-    product_id: str = Field(..., min_length=2, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
+    product_id: str = Field(..., min_length=1, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
     promo_url: str = Field(..., max_length=512)
     default_trial_days: int = Field(7, ge=1, le=365)
 
 class RequestTrialRequest(BaseModel):
-    hardware_id: str = Field(..., min_length=8, max_length=64)
-    product_id: str = Field(..., min_length=2, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
+    hardware_id: str = Field(..., min_length=8, max_length=64, pattern=r"^[a-zA-Z0-9_\-]+$")
+    product_id: str = Field(..., min_length=1, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
 
 class UpdateLicenseRequest(BaseModel):
     token: str
@@ -82,7 +82,6 @@ class ScriptUpdateCheck(BaseModel):
     current_version: str
 
 class ScriptRegisterRequest(BaseModel):
-    token: str
     script_id: str = Field(..., pattern=r"^[a-zA-Z0-9_-]+$")
     name: str
     latest_version: str
