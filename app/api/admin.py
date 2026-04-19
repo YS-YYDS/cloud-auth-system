@@ -373,15 +373,17 @@ def admin_update_promo_url(req: UpdatePromoUrlRequest, conn=Depends(get_db), _=D
     key_name = f"promo_url_{req.product_id}"
     if req.promo_url and req.promo_url.strip():
         c.execute("INSERT OR REPLACE INTO system_config (key, value) VALUES (?, ?)", (key_name, req.promo_url))
-        if req.product_id in ("_ALL_", "GLOBAL"):
-            c.execute("INSERT OR REPLACE INTO system_config (key, value) VALUES (?, ?)",
-                      ("default_trial_days__ALL_", str(req.default_trial_days)))
         safe_url = req.promo_url.replace("\n", "").replace("\r", "")[:100]
         logger.info(f"Admin_UpdatePromoUrl: product={req.product_id} url={safe_url}")
     else:
         c.execute("DELETE FROM system_config WHERE key=?", (key_name,))
         logger.info(f"Admin_UpdatePromoUrl: deleted for product={req.product_id}")
-    
+
+    # [FIX] Always persist trial days — decoupled from promo_url presence
+    if req.product_id in ("_ALL_", "GLOBAL"):
+        c.execute("INSERT OR REPLACE INTO system_config (key, value) VALUES (?, ?)",
+                  ("default_trial_days__ALL_", str(req.default_trial_days)))
+
     conn.commit()
 # conn.close() -> 移除
     return {"status": "success"}
