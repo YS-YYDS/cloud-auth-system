@@ -1,0 +1,8 @@
+license.db
+*.md
+legacy/
+tests/
+download_deps.py
+__pycache__/
+*.pyc
+.git/
